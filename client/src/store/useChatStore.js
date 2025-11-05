@@ -14,9 +14,15 @@ export const useChatStore = create((set, get) => ({
     set({ isUsersLoading: true });
     try {
       const res = await axiosInstance.get("/messages/users");
-      set({ users: res.data });
+      // Initialize optional fields
+      const usersWithLast = res.data.map((u) => ({
+        ...u,
+        lastMessage: "",
+        lastMessageTime: "",
+      }));
+      set({ users: usersWithLast });
     } catch (error) {
-      toast.error(error.response.data.message);
+      toast.error(error.response?.data?.message || "Failed to load users");
     } finally {
       set({ isUsersLoading: false });
     }
@@ -28,33 +34,62 @@ export const useChatStore = create((set, get) => ({
       const res = await axiosInstance.get(`/messages/${userId}`);
       set({ messages: res.data });
     } catch (error) {
-      toast.error(error.response.data.message);
+      toast.error(error.response?.data?.message || "Failed to load messages");
     } finally {
       set({ isMessagesLoading: false });
     }
   },
+
+  // ✅ Send message + update preview and time
   sendMessage: async (messageData) => {
-    const { selectedUser, messages } = get();
+    const { selectedUser, messages, users } = get();
     try {
       const res = await axiosInstance.post(`/messages/send/${selectedUser._id}`, messageData);
-      set({ messages: [...messages, res.data] });
+      const currentTime = new Date().toISOString();
+
+      const updatedUsers = users.map((u) =>
+        u._id === selectedUser._id
+          ? { ...u, lastMessage: messageData.text, lastMessageTime: currentTime }
+          : u
+      );
+
+      const reordered = [
+        ...updatedUsers.filter((u) => u._id === selectedUser._id),
+        ...updatedUsers.filter((u) => u._id !== selectedUser._id),
+      ];
+
+      set({
+        messages: [...messages, res.data],
+        users: reordered,
+      });
     } catch (error) {
-      toast.error(error.response.data.message);
+      toast.error(error.response?.data?.message || "Failed to send message");
     }
   },
 
+  // ✅ Receive message + update preview and time
   subscribeToMessages: () => {
-    const { selectedUser } = get();
-    if (!selectedUser) return;
-
     const socket = useAuthStore.getState().socket;
 
     socket.on("newMessage", (newMessage) => {
-      const isMessageSentFromSelectedUser = newMessage.senderId === selectedUser._id;
-      if (!isMessageSentFromSelectedUser) return;
+      const { selectedUser, users, messages } = get();
+      const isFromSelectedUser = newMessage.senderId === selectedUser?._id;
+      const currentTime = newMessage.createdAt || new Date().toISOString();
+
+      const updatedUsers = users.map((u) =>
+        u._id === newMessage.senderId
+          ? { ...u, lastMessage: newMessage.text, lastMessageTime: currentTime }
+          : u
+      );
+
+      const reordered = [
+        ...updatedUsers.filter((u) => u._id === newMessage.senderId),
+        ...updatedUsers.filter((u) => u._id !== newMessage.senderId),
+      ];
 
       set({
-        messages: [...get().messages, newMessage],
+        users: reordered,
+        messages: isFromSelectedUser ? [...messages, newMessage] : messages,
       });
     });
   },
