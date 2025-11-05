@@ -48,18 +48,18 @@ const Sidebar = () => {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Users className="size-6 text-primary" />
-            <span className="font-semibold text-lg text-zinc-800">
+            <span className="font-semibold text-lg">
               Contacts
             </span>
           </div>
-          <span className="text-xs text-zinc-500">
+          <span className="text-xs">
             {onlineUsers.length - 1} online
           </span>
         </div>
 
         {/* Search Bar */}
         <div className="relative mb-3">
-          <Search className="absolute left-3 top-2.5 size-4 text-zinc-500" />
+          <Search className="absolute left-3 top-2.5 size-4" />
           <input
             type="text"
             placeholder="Search..."
@@ -101,7 +101,7 @@ const Sidebar = () => {
                   <img
                     src={user.profilePic || "/avatar.png"}
                     alt={user.fullName}
-                    className="size-12 object-cover rounded-full border border-zinc-300"
+                    className="size-12 object-cover rounded-full border"
                   />
                   <span
                     className={`absolute bottom-0 right-0 size-3 rounded-full ring-2 ring-base-100 ${
@@ -113,15 +113,15 @@ const Sidebar = () => {
                 {/* User Info */}
                 <div className="flex flex-col justify-center flex-1 min-w-0">
                   <div className="flex justify-between items-center">
-                    <div className="font-medium truncate text-zinc-800">{user.fullName}</div>
+                    <div className="font-medium truncate">{user.fullName}</div>
                     {user.lastMessageTime && (
-                      <div className="text-xs text-zinc-500 ml-2 whitespace-nowrap">
+                      <div className="text-xs ml-2 whitespace-nowrap">
                         {formatTime(user.lastMessageTime)}
                       </div>
                     )}
                   </div>
 
-                  <div className="text-sm text-zinc-500 truncate">
+                  <div className="text-sm truncate">
                     {user.lastMessage
                       ? user.lastMessage.length > 28
                         ? user.lastMessage.slice(0, 28) + "..."
