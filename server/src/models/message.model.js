@@ -18,6 +18,7 @@ const messageSchema = new mongoose.Schema(
     file: {
       type: String, // base64 image or video
     },
+    audio: { type: String }, // 🎙 base64 or file URL
     type: {
       type: String, // "text" | "image" | "video"
       default: "text",

@@ -91,6 +91,15 @@ const ChatContainer = () => {
                 />
               )}
 
+              {/* ✅ Audio (Voice Note Support) */}
+              {((message.type === "audio" && message.audio) || message.audio) && (
+                <audio
+                  controls
+                  src={message.audio || message.file}
+                  className="max-w-xs rounded-md mb-2"
+                />
+              )}
+
               {/* ✅ Text */}
               {message.text && <p>{message.text}</p>}
             </div>

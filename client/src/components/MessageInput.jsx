@@ -1,16 +1,21 @@
 import { useRef, useState } from "react";
 import { useChatStore } from "../store/useChatStore";
-import { Send, X, Smile, Image } from "lucide-react"; // using Image icon for both
+import { Send, X, Smile, Image, Mic, Square } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 import toast from "react-hot-toast";
 
 const MessageInput = () => {
   const [text, setText] = useState("");
   const [mediaPreview, setMediaPreview] = useState(null);
-  const [mediaType, setMediaType] = useState(null); // "image" or "video"
+  const [mediaType, setMediaType] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState(null);
 
   const mediaInputRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+
   const { sendMessage } = useChatStore();
 
   // Handle file upload (image or video)
@@ -44,29 +49,87 @@ const MessageInput = () => {
     if (mediaInputRef.current) mediaInputRef.current.value = "";
   };
 
+  // Start Recording
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream);
+
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
+
+      mediaRecorderRef.current.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        audioChunksRef.current = [];
+        setAudioBlob(blob);
+      };
+
+      mediaRecorderRef.current.start();
+      setRecording(true);
+      toast.success("Recording started 🎙");
+    } catch (error) {
+      console.error("Microphone access denied:", error);
+      toast.error("Please allow microphone access");
+    }
+  };
+
+  // Stop Recording
+  const stopRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      setRecording(false);
+      toast("Recording stopped ⏹");
+    }
+  };
+
   // Send message
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!text.trim() && !mediaPreview) return;
+    if (!text.trim() && !mediaPreview && !audioBlob) return;
 
     try {
+      let audioBase64 = null;
+
+      // Convert audio blob to base64 if exists
+      if (audioBlob) {
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          audioBase64 = reader.result;
+          await sendMessage({
+            text: text.trim(),
+            file: mediaPreview || null,
+            audio: audioBase64,
+            type: audioBase64 ? "audio" : mediaType || "text",
+          });
+          resetForm();
+        };
+        reader.readAsDataURL(audioBlob);
+        return;
+      }
+
       await sendMessage({
         text: text.trim(),
         file: mediaPreview,
         type: mediaType || "text",
       });
 
-      setText("");
-      setMediaPreview(null);
-      setMediaType(null);
-      setShowEmojiPicker(false);
-      if (mediaInputRef.current) mediaInputRef.current.value = "";
+      resetForm();
     } catch (error) {
       console.error("Failed to send message:", error);
+      toast.error("Failed to send message");
     }
   };
 
-  // Emoji picker
+  const resetForm = () => {
+    setText("");
+    setMediaPreview(null);
+    setMediaType(null);
+    setAudioBlob(null);
+    setShowEmojiPicker(false);
+    if (mediaInputRef.current) mediaInputRef.current.value = "";
+  };
+
   const handleEmojiClick = (emojiData) => {
     setText((prev) => prev + emojiData.emoji);
   };
@@ -117,7 +180,6 @@ const MessageInput = () => {
             <Smile size={22} />
           </button>
 
-          {/* EMOJI PICKER */}
           {showEmojiPicker && (
             <div className="absolute bottom-16 left-4 z-20">
               <EmojiPicker
@@ -140,7 +202,7 @@ const MessageInput = () => {
             onChange={(e) => setText(e.target.value)}
           />
 
-          {/* MEDIA UPLOAD (image or video) */}
+          {/* MEDIA UPLOAD */}
           <input
             type="file"
             accept="image/*,video/*"
@@ -157,13 +219,24 @@ const MessageInput = () => {
           >
             <Image size={20} />
           </button>
+
+          {/* 🎙 VOICE NOTE BUTTON */}
+          <button
+            type="button"
+            className={`flex btn btn-circle ${
+              recording ? "text-red-500" : "text-zinc-400"
+            }`}
+            onClick={recording ? stopRecording : startRecording}
+          >
+            {recording ? <Square size={20} /> : <Mic size={20} />}
+          </button>
         </div>
 
         {/* SEND BUTTON */}
         <button
           type="submit"
           className="btn btn-sm btn-circle ml-auto"
-          disabled={!text.trim() && !mediaPreview}
+          disabled={!text.trim() && !mediaPreview && !audioBlob}
         >
           <Send size={22} />
         </button>

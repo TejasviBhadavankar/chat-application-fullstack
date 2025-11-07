@@ -10,17 +10,12 @@ export const useChatStore = create((set, get) => ({
   isUsersLoading: false,
   isMessagesLoading: false,
 
+  // ✅ Load users (with last message info from backend)
   getUsers: async () => {
     set({ isUsersLoading: true });
     try {
       const res = await axiosInstance.get("/messages/users");
-      // Initialize optional fields
-      const usersWithLast = res.data.map((u) => ({
-        ...u,
-        lastMessage: "",
-        lastMessageTime: "",
-      }));
-      set({ users: usersWithLast });
+      set({ users: res.data });
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to load users");
     } finally {
@@ -28,6 +23,7 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+  // ✅ Load messages with a selected user
   getMessages: async (userId) => {
     set({ isMessagesLoading: true });
     try {
@@ -40,7 +36,7 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  // ✅ Send message + update preview and time
+  // ✅ Send message + update preview and reorder users
   sendMessage: async (messageData) => {
     const { selectedUser, messages, users } = get();
     try {
@@ -66,8 +62,30 @@ export const useChatStore = create((set, get) => ({
       toast.error(error.response?.data?.message || "Failed to send message");
     }
   },
+  //voicenote
+  sendVoiceNote: async (audioBlob) => {
+  const { selectedUser, messages } = get();
+  try {
+    // Convert blob to base64
+    const base64Audio = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.readAsDataURL(audioBlob);
+    });
 
-  // ✅ Receive message + update preview and time
+    const res = await axiosInstance.post(`/messages/send/${selectedUser._id}`, {
+      audio: base64Audio,
+      type: "audio",
+    });
+
+    set({ messages: [...messages, res.data] });
+  } catch (error) {
+    toast.error(error.response?.data?.message || "Failed to send voice note");
+  }
+},
+
+
+  // ✅ Receive message via socket and update sidebar
   subscribeToMessages: () => {
     const socket = useAuthStore.getState().socket;
 
@@ -94,10 +112,12 @@ export const useChatStore = create((set, get) => ({
     });
   },
 
+  // ✅ Unsubscribe from socket events
   unsubscribeFromMessages: () => {
     const socket = useAuthStore.getState().socket;
     socket.off("newMessage");
   },
 
+  // ✅ Set selected user
   setSelectedUser: (selectedUser) => set({ selectedUser }),
 }));

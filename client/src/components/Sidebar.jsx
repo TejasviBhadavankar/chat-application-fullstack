@@ -25,11 +25,15 @@ const Sidebar = () => {
     getUsers();
   }, [getUsers]);
 
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch = user.fullName.toLowerCase().includes(searchTerm.toLowerCase());
+ const filteredUsers = [...users]
+  .sort((a, b) => new Date(b.lastMessageTime || 0) - new Date(a.lastMessageTime || 0))
+  .filter((user) => {
+    const name = user.fullName || "Unknown User";
+    const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase());
     const isOnline = onlineUsers.includes(user._id);
     return (showOnlineOnly ? isOnline : true) && matchesSearch;
   });
+
 
   if (isUsersLoading) return <SidebarSkeleton />;
 
@@ -127,15 +131,6 @@ const Sidebar = () => {
                         ? user.lastMessage.slice(0, 28) + "..."
                         : user.lastMessage
                       : "No recent messages"}
-                  </div>
-
-                  {/* Online/Offline Text */}
-                  <div
-                    className={`text-xs font-medium mt-0.5 ${
-                      isOnline ? "text-green-500" : "text-gray-500"
-                    }`}
-                  >
-                    ● {isOnline ? "Online" : "Offline"}
                   </div>
                 </div>
               </button>
