@@ -2,7 +2,6 @@ import User from "../models/user.model.js";
 import Message from "../models/message.model.js";
 import { getReceiverSocketId, io } from "../lib/socket.js";
 
-// Optimized getUsersForSidebar
 export const getUsersForSidebar = async (req, res) => {
   try {
     const loggedInUserId = req.user._id;
@@ -18,18 +17,8 @@ export const getUsersForSidebar = async (req, res) => {
               $match: {
                 $expr: {
                   $or: [
-                    {
-                      $and: [
-                        { $eq: ["$senderId", "$$userId"] },
-                        { $eq: ["$receiverId", loggedInUserId] },
-                      ],
-                    },
-                    {
-                      $and: [
-                        { $eq: ["$senderId", loggedInUserId] },
-                        { $eq: ["$receiverId", "$$userId"] },
-                      ],
-                    },
+                    { $and: [{ $eq: ["$senderId", "$$userId"] }, { $eq: ["$receiverId", loggedInUserId] }] },
+                    { $and: [{ $eq: ["$senderId", loggedInUserId] }, { $eq: ["$receiverId", "$$userId"] }] },
                   ],
                 },
               },
@@ -43,6 +32,9 @@ export const getUsersForSidebar = async (req, res) => {
       {
         $addFields: {
           lastMessage: { $arrayElemAt: ["$lastMessage.text", 0] },
+          lastMessageFile: { $arrayElemAt: ["$lastMessage.file", 0] },
+          lastMessageAudio: { $arrayElemAt: ["$lastMessage.audio", 0] },
+          lastMessageType: { $arrayElemAt: ["$lastMessage.type", 0] },
           lastMessageTime: { $arrayElemAt: ["$lastMessage.createdAt", 0] },
         },
       },

@@ -36,7 +36,7 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  // ✅ Send message + update preview and reorder users
+  // ✅ Send message + update sidebar instantly
   sendMessage: async (messageData) => {
     const { selectedUser, messages, users } = get();
     try {
@@ -45,7 +45,14 @@ export const useChatStore = create((set, get) => ({
 
       const updatedUsers = users.map((u) =>
         u._id === selectedUser._id
-          ? { ...u, lastMessage: messageData.text, lastMessageTime: currentTime }
+          ? {
+              ...u,
+              lastMessage: messageData.text || "",
+              lastMessageFile: messageData.file || null,
+              lastMessageAudio: messageData.audio || null,
+              lastMessageType: messageData.type || "text",
+              lastMessageTime: currentTime,
+            }
           : u
       );
 
@@ -62,28 +69,50 @@ export const useChatStore = create((set, get) => ({
       toast.error(error.response?.data?.message || "Failed to send message");
     }
   },
-  //voicenote
+
+  // ✅ Send voice note
   sendVoiceNote: async (audioBlob) => {
-  const { selectedUser, messages } = get();
-  try {
-    // Convert blob to base64
-    const base64Audio = await new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.readAsDataURL(audioBlob);
-    });
+    const { selectedUser, messages, users } = get();
+    try {
+      const base64Audio = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(audioBlob);
+      });
 
-    const res = await axiosInstance.post(`/messages/send/${selectedUser._id}`, {
-      audio: base64Audio,
-      type: "audio",
-    });
+      const res = await axiosInstance.post(`/messages/send/${selectedUser._id}`, {
+        audio: base64Audio,
+        type: "audio",
+      });
 
-    set({ messages: [...messages, res.data] });
-  } catch (error) {
-    toast.error(error.response?.data?.message || "Failed to send voice note");
-  }
-},
+      const currentTime = new Date().toISOString();
 
+      const updatedUsers = users.map((u) =>
+        u._id === selectedUser._id
+          ? {
+              ...u,
+              lastMessage: "",
+              lastMessageFile: null,
+              lastMessageAudio: base64Audio,
+              lastMessageType: "audio",
+              lastMessageTime: currentTime,
+            }
+          : u
+      );
+
+      const reordered = [
+        ...updatedUsers.filter((u) => u._id === selectedUser._id),
+        ...updatedUsers.filter((u) => u._id !== selectedUser._id),
+      ];
+
+      set({
+        messages: [...messages, res.data],
+        users: reordered,
+      });
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to send voice note");
+    }
+  },
 
   // ✅ Receive message via socket and update sidebar
   subscribeToMessages: () => {
@@ -96,7 +125,14 @@ export const useChatStore = create((set, get) => ({
 
       const updatedUsers = users.map((u) =>
         u._id === newMessage.senderId
-          ? { ...u, lastMessage: newMessage.text, lastMessageTime: currentTime }
+          ? {
+              ...u,
+              lastMessage: newMessage.text || "",
+              lastMessageFile: newMessage.file || null,
+              lastMessageAudio: newMessage.audio || null,
+              lastMessageType: newMessage.type || "text",
+              lastMessageTime: currentTime,
+            }
           : u
       );
 
